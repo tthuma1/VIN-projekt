@@ -1,0 +1,39 @@
+# STM32CubeIDE specific
+*.launch
+*.bin
+*.hex
+*.elf
+*.map
+*.lst
+*.srec
+*.o
+*.d
+*.dep
+*.log
+
+# Build directories
+Debug/
+Release/
+build/
+MXGeneratedFiles/
+
+# CubeMX and STM32CubeIDE generated files
+*.ioc.launch
+*.touchfx
+*.settings/
+.metadata/
+.project
+.cproject
+.ipr
+.iws
+.idea/
+
+# Eclipse workspace
+.settings/
+*.swp
+*.bak
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
