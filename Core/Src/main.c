@@ -31,6 +31,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
+#define MAX_COMMAND_LEN 100
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
@@ -74,7 +75,9 @@ float calculate_power(float temperature, float prag) {
 
 float prag = 22.0f;
 uint8_t loggedIn = 0;
-
+char commandBuffer[MAX_COMMAND_LEN];
+int commandIndex = 0;
+uint8_t receivedChar;
 /**
   * @brief  Main program
   * @param  None
@@ -117,12 +120,56 @@ int main(void)
   UTIL_LCD_SetFuncDriver(&LCD_Driver);
 
   Touchscreen_demo();
+
   /* Wait For User inputs */
   while (1)
   {
-	  uint8_t mydata[1] = "b";
-	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
-	HAL_Delay(100); // pocakaj 1000 ms
+//	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
+//	HAL_Delay(100); // pocakaj 1000 ms
+
+	// Receive one character (blocking)
+	if (HAL_UART_Receive(&huart3, &receivedChar, 1, HAL_MAX_DELAY) == HAL_OK)
+	{
+		// Echo the character back
+		HAL_UART_Transmit(&huart3, &receivedChar, 1, HAL_MAX_DELAY);
+
+		if (receivedChar == '\r' || receivedChar == '\n')
+		{
+			commandBuffer[commandIndex] = '\0';  // Null-terminate
+
+			// Check if the command is "red"
+			if (strcmp(commandBuffer, "red") == 0)
+			{
+				char msg[] = "\r\nYou entered RED!\r\n";
+				HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+			}
+			else
+			{
+				char msg[] = "\r\nUnknown command\r\n";
+				HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+			}
+
+			// Reset buffer
+			commandIndex = 0;
+			memset(commandBuffer, 0, MAX_COMMAND_LEN);
+		}
+		else
+		{
+			// Store character if space permits
+			if (commandIndex < MAX_COMMAND_LEN - 1)
+			{
+				commandBuffer[commandIndex++] = receivedChar;
+			}
+			else
+			{
+				// Optional: handle overflow
+				commandIndex = 0;
+				memset(commandBuffer, 0, MAX_COMMAND_LEN);
+				char err[] = "\r\nInput too long!\r\n";
+				HAL_UART_Transmit(&huart3, (uint8_t*)err, strlen(err), HAL_MAX_DELAY);
+			}
+		}
+	}
 
     if (loggedIn) {
       float temp = Read_HTU21D_Temperature();
