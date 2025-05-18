@@ -24,6 +24,7 @@
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef STM32H750B_DK_H
 #define STM32H750B_DK_H
+#define USE_BSP_COM_FEATURE 1U
 
 #ifdef __cplusplus
  extern "C" {

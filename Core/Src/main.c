@@ -32,6 +32,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define MAX_COMMAND_LEN 100
+#define USE_BSP_COM_FEATURE
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
@@ -47,6 +48,10 @@ static void MX_I2C4_Init(void);
 
 float Read_HTU21D_Temperature(void);
 float calculate_power(float, float);
+void Start_UART_Receive_IT();
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+
+
 
 /* Private functions ---------------------------------------------------------*/
 float Read_HTU21D_Temperature(void) {
@@ -121,55 +126,13 @@ int main(void)
 
   Touchscreen_demo();
 
+  Start_UART_Receive_IT();
+
   /* Wait For User inputs */
   while (1)
   {
 //	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
 //	HAL_Delay(100); // pocakaj 1000 ms
-
-	// Receive one character (blocking)
-	if (HAL_UART_Receive(&huart3, &receivedChar, 1, HAL_MAX_DELAY) == HAL_OK)
-	{
-		// Echo the character back
-		HAL_UART_Transmit(&huart3, &receivedChar, 1, HAL_MAX_DELAY);
-
-		if (receivedChar == '\r' || receivedChar == '\n')
-		{
-			commandBuffer[commandIndex] = '\0';  // Null-terminate
-
-			// Check if the command is "red"
-			if (strcmp(commandBuffer, "red") == 0)
-			{
-				char msg[] = "\r\nYou entered RED!\r\n";
-				HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-			}
-			else
-			{
-				char msg[] = "\r\nUnknown command\r\n";
-				HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-			}
-
-			// Reset buffer
-			commandIndex = 0;
-			memset(commandBuffer, 0, MAX_COMMAND_LEN);
-		}
-		else
-		{
-			// Store character if space permits
-			if (commandIndex < MAX_COMMAND_LEN - 1)
-			{
-				commandBuffer[commandIndex++] = receivedChar;
-			}
-			else
-			{
-				// Optional: handle overflow
-				commandIndex = 0;
-				memset(commandBuffer, 0, MAX_COMMAND_LEN);
-				char err[] = "\r\nInput too long!\r\n";
-				HAL_UART_Transmit(&huart3, (uint8_t*)err, strlen(err), HAL_MAX_DELAY);
-			}
-		}
-	}
 
     if (loggedIn) {
       float temp = Read_HTU21D_Temperature();
@@ -215,6 +178,58 @@ int main(void)
 	  HAL_Delay(80);
   }
 }
+
+void Start_UART_Receive_IT()
+{
+    HAL_UART_Receive_IT(&huart3, &receivedChar, 1);  // Start reception
+}
+
+// Callback gets called when a character is received
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        // Echo back the received character
+        HAL_UART_Transmit(&huart3, &receivedChar, 1, HAL_MAX_DELAY);
+
+        if (receivedChar == '\r' || receivedChar == '\n')
+        {
+            commandBuffer[commandIndex] = '\0';  // Terminate the string
+
+            // Process the command
+            if (strcmp(commandBuffer, "red") == 0)
+            {
+                char msg[] = "\r\nYou entered RED!\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_RED);
+            } else if (strcmp(commandBuffer, "white") == 0) {
+            	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
+                char msg[] = "\r\nYou entered WHITE!\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            }
+            else
+            {
+                char msg[] = "\r\nUnknown command\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            }
+
+            // Reset the buffer
+            commandIndex = 0;
+            memset(commandBuffer, 0, MAX_COMMAND_LEN);
+        }
+        else
+        {
+            if (commandIndex < MAX_COMMAND_LEN - 1)
+            {
+                commandBuffer[commandIndex++] = receivedChar;
+            }
+        }
+
+        // Continue receiving next character
+        HAL_UART_Receive_IT(&huart3, &receivedChar, 1);
+    }
+}
+
 /**
   * @brief  System Clock Configuration
   *         The system Clock is configured as follow :
