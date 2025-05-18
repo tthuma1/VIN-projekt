@@ -34,11 +34,13 @@
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
+UART_HandleTypeDef huart3;
 
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
 static void CPU_CACHE_Enable(void);
 //static void MPU_Config(void);
+static void MX_USART3_UART_Init(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C4_Init(void);
 
@@ -47,28 +49,31 @@ float calculate_power(float, float);
 
 /* Private functions ---------------------------------------------------------*/
 float Read_HTU21D_Temperature(void) {
-	uint8_t write_address = 0x80;
-	uint8_t command[] = {0xF3};
+  uint8_t write_address = 0x80;
+  uint8_t command[] = {0xF3};
 
-	// trigger temperature measurement
-	HAL_I2C_Master_Transmit(&hi2c4, write_address, command, sizeof(command), HAL_MAX_DELAY);
-	HAL_Delay(50);
+  // trigger temperature measurement
+  HAL_I2C_Master_Transmit(&hi2c4, write_address, command, sizeof(command), HAL_MAX_DELAY);
+  HAL_Delay(50);
 
-	uint8_t read_address = 0x81;
-	uint8_t sensor_data[3];
-	HAL_I2C_Master_Receive(&hi2c4, read_address, sensor_data, sizeof(sensor_data), HAL_MAX_DELAY);
+  uint8_t read_address = 0x81;
+  uint8_t sensor_data[3];
+  HAL_I2C_Master_Receive(&hi2c4, read_address, sensor_data, sizeof(sensor_data), HAL_MAX_DELAY);
 
-	uint16_t meritev =  (sensor_data[0] << 8) | (sensor_data[1] & 0xFC);
-	float temp = -46.85 + 175.72 * ((float) meritev / (1 << 16));
+  uint16_t meritev =  (sensor_data[0] << 8) | (sensor_data[1] & 0xFC);
+  float temp = -46.85 + 175.72 * ((float) meritev / (1 << 16));
 
-	return temp;
+  return temp;
 }
 
 float calculate_power(float temperature, float prag) {
-    float alpha = 1.5f; // faktor ostrine S-krivulje
+    float alpha = 1.0f; // faktor ostrine S-krivulje
     float x = temperature - prag;
-    return 3.0f * tanhf(alpha * x); // tanhf je float verzija tanh()
+    return -3.0f * tanhf(alpha * x); // tanhf je float verzija tanh()
 }
+
+float prag = 22.0f;
+uint8_t loggedIn = 0;
 
 /**
   * @brief  Main program
@@ -101,14 +106,12 @@ int main(void)
   SystemClock_Config();
 
   MX_GPIO_Init();
+  MX_USART3_UART_Init();
   MX_I2C4_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
   HAL_Delay(20);
-
-  float prag = 22.0f;
-
 
   BSP_LCD_Init(0, LCD_ORIENTATION_LANDSCAPE);
   UTIL_LCD_SetFuncDriver(&LCD_Driver);
@@ -117,43 +120,52 @@ int main(void)
   /* Wait For User inputs */
   while (1)
   {
-	  float temp = Read_HTU21D_Temperature();
-	  //float temp = 22.0f;
-	  float diff = temp - prag;
+	  uint8_t mydata[1] = "b";
+	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
+	HAL_Delay(100); // pocakaj 1000 ms
 
-	  // PD3 = ogrevanje ali hlajenje (leva lucka)
-	  // PJ2 = sredinska lucka
-	  // PI13 = desna lucka
+    if (loggedIn) {
+      float temp = Read_HTU21D_Temperature();
+      // //float temp = 22.0f;
+      // float diff = temp - prag;
 
-	  // leva lucka (ogravanje ali hlajenje)
-      if (temp < prag - 0.5) {
-          HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_SET);
-      } else {
-          HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_RESET);
-      }
+      // // PD3 = ogrevanje ali hlajenje (leva lucka)
+      // // PJ2 = sredinska lucka
+      // // PI13 = desna lucka
 
-      if ((-1.5 <= diff && diff < -0.5) || (0.5 < diff && diff <= 1.5)) {
-    	  // nivo 1
-          HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
-          HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
-      } else if ((-2.5 <= diff && diff < -1.5) || (1.5 < diff && diff <= 2.5)) {
-    	  // nivo 2
-          HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
-          HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
-      } else if (diff < -2.5 || diff > 2.5) {
-    	  // nivo 3
-          HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
-          HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
-      } else {
-    	  // ugasnjeno
-          HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
-          HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
-      }
+      // // leva lucka (ogravanje ali hlajenje)
+      //   if (temp < prag - 0.5) {
+      //       HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_SET);
+      //   } else {
+      //       HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_RESET);
+      //   }
 
-      float power = calculate_power(temp, prag);
+      //   if ((-1.5 <= diff && diff < -0.5) || (0.5 < diff && diff <= 1.5)) {
+      //     // nivo 1
+      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
+      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
+      //   } else if ((-2.5 <= diff && diff < -1.5) || (1.5 < diff && diff <= 2.5)) {
+      //     // nivo 2
+      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
+      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
+      //   } else if (diff < -2.5 || diff > 2.5) {
+      //     // nivo 3
+      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
+      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
+      //   } else {
+      //     // ugasnjeno
+      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
+      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
+      //   }
 
-      update_display(prag, temp, power); // tvoja funkcija za izris
-      HAL_Delay(500);
+        float power = calculate_power(temp, prag);
+
+      //   update_display(prag, temp, power); // tvoja funkcija za izris
+		  update_display(prag, temp, power);
+	  } else {
+		  drawLoginScreen();
+	  }
+	  HAL_Delay(80);
   }
 }
 /**
@@ -218,16 +230,16 @@ static void SystemClock_Config(void)
   }
 
 /* Select PLL as system clock source and configure  bus clocks dividers */
-  RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_D1PCLK1 | RCC_CLOCKTYPE_PCLK1 | \
-                                 RCC_CLOCKTYPE_PCLK2  | RCC_CLOCKTYPE_D3PCLK1);
-
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
+                              |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV2;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
-  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV1;
+  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV1;
   ret = HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4);
   if(ret != HAL_OK)
   {
@@ -299,6 +311,54 @@ static void MX_I2C4_Init(void)
   /* USER CODE BEGIN I2C4_Init 2 */
 
   /* USER CODE END I2C4_Init 2 */
+
+}
+
+/**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
 
 }
 

@@ -37,6 +37,7 @@
 /* Exported functions ------------------------------------------------------- */
 void Touchscreen_demo(void);
 void update_display(float, float, float);
+void drawLoginScreen();
 void Error_Handler(void);
 void QSPI_demo (void);
 void MMC_demo (void);
@@ -47,5 +48,7 @@ void Toggle_Leds(void);
 void Touchscreen_DrawBackground_Circles(uint8_t state);
 uint8_t TouchScreen_GetTouchPosition(void);
 
-#endif /* __MAIN_H */
+extern float prag;
+extern uint8_t loggedIn;
 
+#endif /* __MAIN_H */
