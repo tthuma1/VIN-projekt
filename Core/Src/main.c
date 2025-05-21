@@ -21,6 +21,9 @@
 #include "main.h"
 #include <math.h>
 
+#include "PN532.h"
+#include "spi_pattern.h"
+
 /** @addtogroup STM32H7xx_HAL_Examples
   * @{
   */
@@ -37,6 +40,20 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
 UART_HandleTypeDef huart3;
+SPI_HandleTypeDef hspi2;
+
+uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+
+uint32_t firmwareVersion = 0;
+
+StatusCode532_t statusCode;
+
+uint8_t txFWversion[128];
+uint8_t txUIDLength[128];
+uint8_t txUID[32];
+uint8_t txData[256];
+
 
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
@@ -45,6 +62,7 @@ static void CPU_CACHE_Enable(void);
 static void MX_USART3_UART_Init(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C4_Init(void);
+static void MX_SPI2_Init(void);
 
 float Read_HTU21D_Temperature(void);
 float calculate_power(float, float);
@@ -114,6 +132,7 @@ int main(void)
   SystemClock_Config();
 
   MX_GPIO_Init();
+  MX_SPI2_Init();
   MX_USART3_UART_Init();
   MX_I2C4_Init();
   /* USER CODE BEGIN 2 */
@@ -128,11 +147,51 @@ int main(void)
 
   Start_UART_Receive_IT();
 
+    /*****************************************************************************************************
+   * 1. Wake-up PN532 and check if it is available by getting its firmware version
+   *****************************************************************************************************/
+  HAL_UART_Transmit(&huart3, "\nLooking for PN532... \n\0", sizeof("\nLooking for PN532... \n\0"), HAL_MAX_DELAY);
+  PN532_SPI_Init();
+  while(1) {
+	  firmwareVersion = PN532_getFirmwareVersion();
+	  if (firmwareVersion != STATUS_532_ERROR) {               // if not able to read version number, quit
+		  break;
+	  }
+	  HAL_Delay(250);
+  }
+
+  sprintf(txFWversion, "\nPN532 found. Firmware version: 0x%08X \n\0", firmwareVersion);
+  HAL_UART_Transmit(&huart3, txFWversion, sizeof(txFWversion), HAL_MAX_DELAY);
+
+  /*****************************************************************************************************
+   * 2. Configure SAM: set normal operation mode and initialize the RF interface
+   *****************************************************************************************************/
+
+  HAL_UART_Transmit(&huart3, "\nConfiguring SAM.... \n\0", sizeof("\nConfiguring SAM.... \n\0"), HAL_MAX_DELAY);
+  while (PN532_SAMConfiguration() != STATUS_532_OK){
+	  HAL_Delay(100);
+  }
+  HAL_UART_Transmit(&huart3, "\nSAM configured.\n\0", sizeof("\nSAM configured.\n\0"), HAL_MAX_DELAY);
+
   /* Wait For User inputs */
   while (1)
   {
 //	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
 //	HAL_Delay(100); // pocakaj 1000 ms
+
+		statusCode = InListPassiveTarget(uid, &uidLength);
+		if (statusCode == STATUS_532_OK) {
+
+			sprintf(txUIDLength, "\nUID Length: %d \n\0", uidLength);
+			HAL_UART_Transmit(&huart3, txUIDLength, sizeof(txUIDLength), HAL_MAX_DELAY);
+			HAL_UART_Transmit(&huart3, "UID: ", sizeof("UID: "), HAL_MAX_DELAY);
+			for (int i = 0; i < uidLength; i++) {
+				sprintf(txUID, "0x%X ", uid[i]);
+				HAL_UART_Transmit(&huart3, txUID, sizeof(txUID), HAL_MAX_DELAY);
+			}
+		}
+		HAL_Delay(1000);
+
 
     if (loggedIn) {
       float temp = Read_HTU21D_Temperature();
@@ -373,6 +432,58 @@ static void MX_I2C4_Init(void)
   /* USER CODE BEGIN I2C4_Init 2 */
 
   /* USER CODE END I2C4_Init 2 */
+
+}
+
+/**
+  * @brief SPI2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI2_Init(void)
+{
+
+  /* USER CODE BEGIN SPI2_Init 0 */
+
+  /* USER CODE END SPI2_Init 0 */
+
+  /* USER CODE BEGIN SPI2_Init 1 */
+
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_LSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 0x0;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi2.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+  hspi2.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
+  hspi2.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
+  hspi2.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
+  hspi2.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
+  hspi2.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+  hspi2.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
+  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+  hspi2.Init.IOSwap = SPI_IO_SWAP_DISABLE;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI2_Init 2 */
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE END SPI2_Init 2 */
 
 }
 
