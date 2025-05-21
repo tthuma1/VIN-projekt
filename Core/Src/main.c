@@ -174,6 +174,7 @@ int main(void)
 	  HAL_Delay(100);
   }
   HAL_UART_Transmit(&huart3, "\n\rSAM configured.\n\r\0", sizeof("\n\rSAM configured.\n\r\0"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
 
   /* Wait For User inputs */
   while (1)
@@ -197,6 +198,7 @@ int main(void)
 		if (jeTag) {
 			loggedIn = true;
 		}
+		HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
 	}
 	HAL_Delay(100);
 
@@ -282,6 +284,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             // Reset the buffer
             commandIndex = 0;
             memset(commandBuffer, 0, MAX_COMMAND_LEN);
+
+            HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
         }
         else
         {
