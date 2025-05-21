@@ -78,6 +78,9 @@ uint32_t ts_status = BSP_ERROR_NONE;
   */
 void processBackgroundFade(void);
 void drawTempControls();
+void drawControl(uint16_t, uint16_t, uint8_t, uint32_t);
+
+void drawText(uint16_t, uint16_t, sFONT, const char*);
 uint8_t is_touch_in_area(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 
 
@@ -125,8 +128,8 @@ void Touchscreen_demo(void)
 
 	/* Set Touchscreen Demo1 description */
 //	UTIL_LCD_FillRect(0, 0, x_size, 80, UTIL_LCD_COLOR_BLUE);
-	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
-	UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
+	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLACK);
+//	UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
 //	UTIL_LCD_SetFont(&Font24);
 //
 //	UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"Touchscreen basic polling", CENTER_MODE);
@@ -232,18 +235,39 @@ void update_display(float set_temp, float measured, float power) {
 
 	processBackgroundFade();
 
-	drawTempControls();
-
     char buf[64];
-    sprintf(buf, "Nastavljena temperatura: %.1f C", set_temp);
-    UTIL_LCD_DisplayStringAt(10, 10, (uint8_t *)buf, CENTER_MODE);
-    sprintf(buf, "Izmerjena temperatura: %.1f C", measured);
-    UTIL_LCD_DisplayStringAt(10, 30, (uint8_t *)buf, CENTER_MODE);
-    sprintf(buf, "Moc gretja: %.2f", power);
-    UTIL_LCD_DisplayStringAt(10, 50, (uint8_t *)buf, CENTER_MODE);
+    if(power > 0) sprintf(buf, "Heat: %.2f ", power);
+    else if(power < 0) sprintf(buf, "Cool: %.2f ", power);
+    else sprintf(buf, "Off: %.2f ", power);
+    drawText(30, 30, Font16, buf);
+
+
+    drawControl(hTS.Width/2, 30, 1, UTIL_LCD_COLOR_BLACK);
+    drawControl(hTS.Width - 100, 30, 1, UTIL_LCD_COLOR_BLACK);
+
+    drawText(30, 100, Font16, "Room");
+    drawText(hTS.Width/2, 100, Font16, "Set");
+    drawText(hTS.Width - 100, 100, Font16, "Alpha");
+
+
+    float alpha = 1.5; // temp placeholder
+
+    sprintf(buf, "%.1f", set_temp);
+    drawText(hTS.Width/2, 118, Font24, buf);
+    sprintf(buf, "%.1f", alpha);
+    drawText(hTS.Width - 100, 118, Font24, buf);
+
+    sprintf(buf, "%.1f", measured);
+    drawText(30, hTS.Height - 100, Font32, buf);
+
+
+    drawControl(hTS.Width/2, hTS.Height - 50, 0, UTIL_LCD_COLOR_BLACK);
+    drawControl(hTS.Width - 100, hTS.Height - 50, 0, UTIL_LCD_COLOR_BLACK);
+
 }
 
-void drawTempControls() {
+void drawControls(uint16_t x, uint16_t y) {
+
 
 	UTIL_LCD_DrawRect(heatDownBtnPosX, heatDownBtnPosY, btnW, btnH, UTIL_LCD_COLOR_BLUE);
 	UTIL_LCD_DrawRect(heatUpBtnPosX, heatUpBtnPosY, btnW, btnH, UTIL_LCD_COLOR_RED);
@@ -254,14 +278,32 @@ void drawTempControls() {
 		UTIL_LCD_FillCircle(TS_State.TouchX, TS_State.TouchY, 20, UTIL_LCD_COLOR_BLACK);
 		if (is_touch_in_area(TS_State.TouchX, TS_State.TouchY, heatDownBtnPosX, heatDownBtnPosY, btnW, btnH)) {
 			UTIL_LCD_FillRect(heatDownBtnPosX, heatDownBtnPosY, btnW, btnH, UTIL_LCD_COLOR_BLUE);
-			prag = prag - 1;
+			prag = prag - 0.5;
 		}
 		if (is_touch_in_area(TS_State.TouchX, TS_State.TouchY, heatUpBtnPosX, heatUpBtnPosY, btnW, btnH)) {
 			UTIL_LCD_FillRect(heatUpBtnPosX, heatUpBtnPosY, btnW, btnH, UTIL_LCD_COLOR_RED);
-			prag = prag + 1;
+			prag = prag + 0.5;
 		}
 
 	}
+}
+
+void drawControl(uint16_t x, uint16_t y, uint8_t up, uint32_t color)
+{
+    if (up)
+    {
+        // Draw up arrow
+        UTIL_LCD_DrawLine(x, y, x-10, y+20, color);
+        UTIL_LCD_DrawLine(x, y, x+10, y+20, color);
+        UTIL_LCD_DrawLine(x-10, y+20, x+10, y+20, color);
+    }
+    else
+    {
+        // Draw down arrow
+        UTIL_LCD_DrawLine(x-10, y, x, y+20, color);
+        UTIL_LCD_DrawLine(x+10, y, x, y+20, color);
+        UTIL_LCD_DrawLine(x-10, y, x+10, y, color);
+    }
 }
 
 
@@ -294,8 +336,15 @@ void drawLoginScreen() { // Hvala ChadGPT
     			UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
     		}
     	}
-
 }
+
+void drawText(uint16_t x, uint16_t y, sFONT fontSize, const char* content) {
+    UTIL_LCD_SetFont(&fontSize);
+    UTIL_LCD_DisplayStringAt(x, y, (uint8_t*)content, LEFT_MODE);
+}
+
+
+
 
 
 uint8_t is_touch_in_area(uint32_t touch_x, uint32_t touch_y, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
@@ -307,7 +356,11 @@ uint8_t is_touch_in_area(uint32_t touch_x, uint32_t touch_y, uint32_t x, uint32_
 }
 
 void processBackgroundFade(void) {
-    if (fadeStepsRemaining <= 0) return;  // No fade in progress
+
+    if (fadeStepsRemaining <= 0) {
+    	UTIL_LCD_Clear(currBackgroundColor);
+    	return;
+    }  // No fade in progress
 
     int r1 = GET_R(currBackgroundColor);
     int g1 = GET_G(currBackgroundColor);
