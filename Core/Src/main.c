@@ -19,6 +19,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdbool.h>
 #include <math.h>
 
 #include "PN532.h"
@@ -44,6 +45,7 @@ SPI_HandleTypeDef hspi2;
 
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
 uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+uint8_t tagUid[] = { 0x93, 0x4D, 0x8, 0x14 };
 
 uint32_t firmwareVersion = 0;
 
@@ -150,7 +152,7 @@ int main(void)
     /*****************************************************************************************************
    * 1. Wake-up PN532 and check if it is available by getting its firmware version
    *****************************************************************************************************/
-  HAL_UART_Transmit(&huart3, "\nLooking for PN532... \n\0", sizeof("\nLooking for PN532... \n\0"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart3, "\n\rLooking for PN532... \n\r\0", sizeof("\n\rLooking for PN532... \n\r\0"), HAL_MAX_DELAY);
   PN532_SPI_Init();
   while(1) {
 	  firmwareVersion = PN532_getFirmwareVersion();
@@ -160,18 +162,18 @@ int main(void)
 	  HAL_Delay(250);
   }
 
-  sprintf(txFWversion, "\nPN532 found. Firmware version: 0x%08X \n\0", firmwareVersion);
+  sprintf(txFWversion, "\n\rPN532 found. Firmware version: 0x%08X \n\r\0", firmwareVersion);
   HAL_UART_Transmit(&huart3, txFWversion, sizeof(txFWversion), HAL_MAX_DELAY);
 
   /*****************************************************************************************************
    * 2. Configure SAM: set normal operation mode and initialize the RF interface
    *****************************************************************************************************/
 
-  HAL_UART_Transmit(&huart3, "\nConfiguring SAM.... \n\0", sizeof("\nConfiguring SAM.... \n\0"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart3, "\n\rConfiguring SAM.... \n\r\0", sizeof("\n\rConfiguring SAM.... \n\r\0"), HAL_MAX_DELAY);
   while (PN532_SAMConfiguration() != STATUS_532_OK){
 	  HAL_Delay(100);
   }
-  HAL_UART_Transmit(&huart3, "\nSAM configured.\n\0", sizeof("\nSAM configured.\n\0"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart3, "\n\rSAM configured.\n\r\0", sizeof("\n\rSAM configured.\n\r\0"), HAL_MAX_DELAY);
 
   /* Wait For User inputs */
   while (1)
@@ -179,19 +181,24 @@ int main(void)
 //	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
 //	HAL_Delay(100); // pocakaj 1000 ms
 
-		statusCode = InListPassiveTarget(uid, &uidLength);
-		if (statusCode == STATUS_532_OK) {
+	statusCode = InListPassiveTarget(uid, &uidLength);
+	if (statusCode == STATUS_532_OK) {
 
-			sprintf(txUIDLength, "\nUID Length: %d \n\0", uidLength);
-			HAL_UART_Transmit(&huart3, txUIDLength, sizeof(txUIDLength), HAL_MAX_DELAY);
-			HAL_UART_Transmit(&huart3, "UID: ", sizeof("UID: "), HAL_MAX_DELAY);
-			for (int i = 0; i < uidLength; i++) {
-				sprintf(txUID, "0x%X ", uid[i]);
-				HAL_UART_Transmit(&huart3, txUID, sizeof(txUID), HAL_MAX_DELAY);
-			}
+		sprintf(txUIDLength, "\n\rUID Length: %d \n\r\0", uidLength);
+		HAL_UART_Transmit(&huart3, txUIDLength, sizeof(txUIDLength), HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart3, "UID: ", sizeof("UID: "), HAL_MAX_DELAY);
+		bool jeTag = true;
+		for (int i = 0; i < uidLength; i++) {
+			if (uid[i] != tagUid[i]) jeTag = false;
+			sprintf(txUID, "0x%X ", uid[i]);
+			HAL_UART_Transmit(&huart3, txUID, sizeof(txUID), HAL_MAX_DELAY);
 		}
-		HAL_Delay(1000);
 
+		if (jeTag) {
+			loggedIn = true;
+		}
+	}
+	HAL_Delay(100);
 
     if (loggedIn) {
       float temp = Read_HTU21D_Temperature();
