@@ -93,13 +93,14 @@ float Read_HTU21D_Temperature(void) {
 }
 
 float calculate_power(float temperature, float prag) {
-    float alpha = 1.0f; // faktor ostrine S-krivulje
     float x = temperature - prag;
     return -3.0f * tanhf(alpha * x); // tanhf je float verzija tanh()
 }
 
-float prag = 22.0f;
+float prag = 22.0f; // Set temp
+float alpha = 1.0f; // faktor ostrine S-krivulje
 uint8_t loggedIn = 0;
+
 char commandBuffer[MAX_COMMAND_LEN];
 int commandIndex = 0;
 uint8_t receivedChar;
@@ -200,8 +201,8 @@ int main(void)
 	}
 
     if (loggedIn) {
-      float temp = Read_HTU21D_Temperature();
-      // //float temp = 22.0f;
+//      float temp = Read_HTU21D_Temperature();
+       float temp = 22.0f;
       // float diff = temp - prag;
 
       // // PD3 = ogrevanje ali hlajenje (leva lucka)
@@ -240,7 +241,8 @@ int main(void)
 	  } else {
 		  drawLoginScreen();
 	  }
-	  HAL_Delay(20);
+	  HAL_Delay(80);
+	  checkActivity();
   }
 }
 
