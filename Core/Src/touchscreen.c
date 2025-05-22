@@ -82,6 +82,8 @@ static uint8_t currMin = 0;
 
 float currPower = 999;
 
+extern RTC_HandleTypeDef hrtc;
+
 uint32_t ts_status = BSP_ERROR_NONE;
 /* Private function prototypes -----------------------------------------------*/
 void processBackgroundFade(void);
@@ -92,6 +94,7 @@ uint32_t getInterpolatedColor(float);
 void drawText(uint16_t, uint16_t, sFONT, const char*);
 void eventListener(void);
 uint8_t isPressed(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+void setLastActivityTime(void);
 /* Private functions ---------------------------------------------------------*/
 
 
@@ -127,10 +130,10 @@ void Touchscreen_demo(void)
 
 
 void update_display(float set_temp, float measured, float power) {
-
 	// ce se power ali background posodobi se vse posodobi drugace nic
 	if (power != currPower || fadeStepsRemaining > 0) {
-
+    UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLACK);
+    UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_WHITE);
 		uint32_t newTargetColor = getInterpolatedColor(power);
 
 		if (newTargetColor != targetBackgroundColor) {
@@ -163,13 +166,13 @@ void update_display(float set_temp, float measured, float power) {
 
 		sprintf(buf, "%.1f", set_temp);
 		drawText(hTS.Width/2, 118, Font24, buf); // Narise set_temp
-		drawText(hTS.Width/2 + 50, 118, Font16, "C"); // Narise enoto -> To je treba se pravilno position-at
+		drawText(hTS.Width/2 + 70, 118, Font16, "C"); // Narise enoto -> To je treba se pravilno position-at
 		sprintf(buf, "%.1f", alpha);
 		drawText(hTS.Width - 100, 118, Font24, buf); // Narise alpha
 
 		sprintf(buf, "%.1f", measured);
 		drawText(30, 118, Font32, buf); // Narise measured
-		drawText(100, 118, Font16, "C"); // Narise enoto -> To je treba se pravilno position-at
+		drawText(110, 118, Font16, "C"); // Narise enoto -> To je treba se pravilno position-at
 
 
 		drawControl(tempDown.x, tempDown.y, 0, UTIL_LCD_COLOR_BLACK); // Narise DOWN control za set temp
@@ -203,17 +206,18 @@ void drawControl(uint16_t x, uint16_t y, uint8_t up, uint32_t color)
 
 
 void drawTime(void) { // Narise cas
-//    RTC_TimeTypeDef sTime;
-//    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-//
-//    if (sTime.Minutes == currMin) return; // preveri ce je treba posodobit izpis
-//    currMin = sTime.Minutes;
-//    char timeString[6];
-//    sprintf(timeString, "%02d:%02d", sTime.Hours, sTime.Minutes);
-//    drawText(30, hTS.Height - 50, Font20, UTIL_LCD_COLOR_BLACK);
+   RTC_TimeTypeDef sTime;
+   HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+
+   //if (sTime.Minutes == currMin) return; // preveri ce je treba posodobit izpis
+   currMin = sTime.Minutes;
+   char timeString[6];
+   sprintf(timeString, "%02d:%02d", sTime.Hours, sTime.Minutes);
+   drawText(30, hTS.Height - 50, Font20, timeString);
 }
 
 void drawLoginScreen() { // Hvala ChadGPT
+    UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
     UTIL_LCD_SetFont(&Font32);
     UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
     UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
@@ -237,14 +241,25 @@ void drawLoginScreen() { // Hvala ChadGPT
     UTIL_LCD_FillRect(rect_x, rect_y, rect_w, rect_h, UTIL_LCD_COLOR_BLUE);
     UTIL_LCD_DisplayStringAt(0, text_y, (uint8_t *)buf, CENTER_MODE);
 
-    ts_status = BSP_TS_GetState(0, &TS_State);
-    	if(TS_State.TouchDetected) {
-    		if (isPressed(TS_State.TouchX, TS_State.TouchY, rect_x, rect_y, rect_w, rect_h)) {
-    			loggedIn = 1;
-    			UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
-    		}
-    	}
+    // uncomment this to enable login by click
+    // ts_status = BSP_TS_GetState(0, &TS_State);
+    // 	if(TS_State.TouchDetected) {
+    // 		if (isPressed(TS_State.TouchX, TS_State.TouchY, rect_x, rect_y, rect_w, rect_h)) {
+    // 			loggedIn = 1;
+    // 			UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
+    // 		}
+    // 	}
 
+}
+
+void checkActivity(void) { // preveri aktivnost uporabnika
+	if (HAL_GetTick() - lastInteractionTime >= 30000) {
+		loggedIn = 0;
+	}
+}
+
+void setLastActivityTime() {
+  lastInteractionTime = HAL_GetTick();
 }
 
 // Basic funkcija, ki izpise neki na zaslon
@@ -285,11 +300,8 @@ void eventListener(void) {
 		if (up > -1) { // preveri ce je bil gumb pressed
 			drawControl(active.x, active.y, up, UTIL_LCD_COLOR_RED);
 		}
-		lastInteractionTime = HAL_GetTick();
-
+    setLastActivityTime();
 	}
-
-
 }
 
 // collison detection za press

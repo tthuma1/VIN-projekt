@@ -41,6 +41,7 @@
 I2C_HandleTypeDef hi2c4;
 UART_HandleTypeDef huart3;
 SPI_HandleTypeDef hspi2;
+RTC_HandleTypeDef hrtc;
 
 uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
 uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
@@ -64,6 +65,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C4_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_RTC_Init(void);
 
 float Read_HTU21D_Temperature(void);
 float calculate_power(float, float);
@@ -137,6 +139,7 @@ int main(void)
   MX_SPI2_Init();
   MX_USART3_UART_Init();
   MX_I2C4_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
@@ -195,6 +198,7 @@ int main(void)
 
 		if (jeTag) {
 			loggedIn = true;
+      setLastActivityTime();
 		}
 		HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
 	}
@@ -241,7 +245,7 @@ int main(void)
 		  drawLoginScreen();
 	  }
 	  HAL_Delay(20);
-    // checkActivity();
+    checkActivity();
   }
 }
 
@@ -441,6 +445,71 @@ static void MX_I2C4_Init(void)
   /* USER CODE BEGIN I2C4_Init 2 */
 
   /* USER CODE END I2C4_Init 2 */
+
+}
+
+
+/**
+  * @brief RTC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  RTC_TimeTypeDef sTime = {0};
+  RTC_DateTypeDef sDate = {0};
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+  /** Initialize RTC Only
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv = 127;
+  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+  hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USER CODE BEGIN Check_RTC_BKUP */
+
+  /* USER CODE END Check_RTC_BKUP */
+
+  /** Initialize RTC and set the Time and Date
+  */
+  sTime.Hours = 0x0;
+  sTime.Minutes = 0x0;
+  sTime.Seconds = 0x0;
+  sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+  sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+  sDate.Month = RTC_MONTH_JANUARY;
+  sDate.Date = 0x1;
+  sDate.Year = 0x0;
+
+  if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
 
 }
 
