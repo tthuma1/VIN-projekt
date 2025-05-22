@@ -242,38 +242,38 @@ void drawTime(void) {  // Narise cas
 }
 
 void drawLoginScreen() { // Hvala ChadGPT
-    UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
-    UTIL_LCD_SetFont(&Font32);
-    UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLACK);
-    UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
+    // UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
+    // UTIL_LCD_SetFont(&Font32);
+    // UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLACK);
+    // UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
 
-    // Rectangle position and size
-    uint32_t rect_x = hTS.Width/2 - 70;
-    uint32_t rect_y = hTS.Height/2 - 40;
-    uint32_t rect_w = 140;
-    uint32_t rect_h = 80;
+    // // Rectangle position and size
+    // uint32_t rect_x = hTS.Width/2 - 70;
+    // uint32_t rect_y = hTS.Height/2 - 40;
+    // uint32_t rect_w = 140;
+    // uint32_t rect_h = 80;
 
 
-    // Get font size (assuming single line height)
-    uint32_t font_h = UTIL_LCD_GetFont()->Height;
+    // // Get font size (assuming single line height)
+    // uint32_t font_h = UTIL_LCD_GetFont()->Height;
 
-    // Calculate center Y position for text
-    uint32_t text_y = rect_y + (rect_h / 2) - (font_h / 2);
+    // // Calculate center Y position for text
+    // uint32_t text_y = rect_y + (rect_h / 2) - (font_h / 2);
 
-    // Display text at center X, calculated Y
-    char buf[64];
-    sprintf(buf, "LOGIN");
-    UTIL_LCD_FillRect(rect_x, rect_y, rect_w, rect_h, UTIL_LCD_COLOR_BLUE);
-    UTIL_LCD_DisplayStringAt(0, text_y, (uint8_t *)buf, CENTER_MODE);
+    // // Display text at center X, calculated Y
+    // char buf[64];
+    // sprintf(buf, "LOGIN");
+    // UTIL_LCD_FillRect(rect_x, rect_y, rect_w, rect_h, UTIL_LCD_COLOR_BLUE);
+    // UTIL_LCD_DisplayStringAt(0, text_y, (uint8_t *)buf, CENTER_MODE);
 
-    // uncomment this to enable login by click
-    // ts_status = BSP_TS_GetState(0, &TS_State);
-    // 	if(TS_State.TouchDetected) {
-    // 		if (isPressed(TS_State.TouchX, TS_State.TouchY, rect_x, rect_y, rect_w, rect_h)) {
-    // 			loggedIn = 1;
-    // 			UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
-    // 		}
-    // 	}
+    // // uncomment this to enable login by click
+    // // ts_status = BSP_TS_GetState(0, &TS_State);
+    // // 	if(TS_State.TouchDetected) {
+    // // 		if (isPressed(TS_State.TouchX, TS_State.TouchY, rect_x, rect_y, rect_w, rect_h)) {
+    // // 			loggedIn = 1;
+    // // 			UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
+    // // 		}
+    // // 	}
 
 }
 
