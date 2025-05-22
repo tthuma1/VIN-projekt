@@ -189,7 +189,7 @@ static void SPI_write(SPI_HandleTypeDef *hspi, uint8_t data){
 
      //command = cmd[0];                                  // record command for response verification
      sendFrame(cmd, cmd_length);                        // write command
-     status = waitToBeReady(PN532_ACK_WAIT_TIME);
+     status = waitToBeReady(5);
      if (status != STATUS_532_OK) return STATUS_532_NOTREADY;
      StatusCode532_t ack = readACK(); // read ACK, returns 0 if OK
      if (ack != STATUS_532_OK) return STATUS_532_INVALID_ACK;
@@ -403,7 +403,7 @@ static void SPI_write(SPI_HandleTypeDef *hspi, uint8_t data){
 
      /*-- write command and read response --*/
      if (sendCommand(packet_buffer, 3) != STATUS_532_OK) return STATUS_532_ERROR;     // return  error
-     if (readResponseToCommand(PN532_COMMAND_INLISTPASSIVETARGET,packet_buffer, sizeof(packet_buffer), PN532_WAITTIME) < 0) return STATUS_532_ERROR;
+     if (readResponseToCommand(PN532_COMMAND_INLISTPASSIVETARGET,packet_buffer, sizeof(packet_buffer), 5) < 0) return STATUS_532_ERROR;
 
      /*
       *         ISO14443A Card Response Format
