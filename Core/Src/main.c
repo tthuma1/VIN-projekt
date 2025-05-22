@@ -93,7 +93,7 @@ float Read_HTU21D_Temperature(void) {
 }
 
 float calculate_power(float temperature, float prag) {
-    float alpha = 1.0f; // faktor ostrine S-krivulje
+    // float alpha = 1.0f; // faktor ostrine S-krivulje
     float x = temperature - prag;
     return -3.0f * tanhf(alpha * x); // tanhf je float verzija tanh()
 }

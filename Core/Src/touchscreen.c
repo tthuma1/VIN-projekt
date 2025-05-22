@@ -85,6 +85,7 @@ float currPower = 999;
 
 extern RTC_HandleTypeDef hrtc;
 extern unsigned long textColor;
+extern float alpha;
 
 uint32_t ts_status = BSP_ERROR_NONE;
 /* Private function prototypes -----------------------------------------------*/
