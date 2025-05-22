@@ -36,7 +36,6 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define MAX_COMMAND_LEN 100
-#define USE_BSP_COM_FEATURE
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
@@ -153,7 +152,7 @@ int main(void)
     /*****************************************************************************************************
    * 1. Wake-up PN532 and check if it is available by getting its firmware version
    *****************************************************************************************************/
-  HAL_UART_Transmit(&huart3, "\r\n--------------REBOOT--------------\r\nLooking for PN532... \r\n", sizeof("\r\n--------------REBOOT--------------\r\nLooking for PN532... \r\n"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart3, (uint8_t*)"\r\n--------------REBOOT--------------\r\nLooking for PN532... \r\n", sizeof("\r\n--------------REBOOT--------------\r\nLooking for PN532... \r\n"), HAL_MAX_DELAY);
   PN532_SPI_Init();
   while(1) {
 	  firmwareVersion = PN532_getFirmwareVersion();
@@ -241,7 +240,7 @@ int main(void)
 	  } else {
 		  drawLoginScreen();
 	  }
-	  HAL_Delay(80);
+	  HAL_Delay(20);
 	  checkActivity();
   }
 }

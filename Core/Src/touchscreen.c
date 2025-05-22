@@ -80,12 +80,14 @@ uint32_t lastInteractionTime = 0;
 static float currPrag = 0;
 static uint8_t currMin = 0;
 
+float currPower = 999;
+
 uint32_t ts_status = BSP_ERROR_NONE;
 /* Private function prototypes -----------------------------------------------*/
 void processBackgroundFade(void);
 void drawControl(uint16_t, uint16_t, uint8_t, uint32_t);
 void drawTime(void);
-lerp(uint8_t, uint8_t, float);
+static uint8_t lerp(uint8_t, uint8_t, float);
 uint32_t getInterpolatedColor(float);
 void drawText(uint16_t, uint16_t, sFONT, const char*);
 void eventListener(void);
@@ -167,14 +169,14 @@ void drawControl(uint16_t x, uint16_t y, uint8_t up, uint32_t color)
 }
 
 void drawTime(void) { // Narise cas
-    RTC_TimeTypeDef sTime;
-    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-
-    if (sTime.Minutes == currMin) return; // preveri ce je treba posodobit izpis
-    currMin = sTime.Minutes;
-    char timeString[6];
-    sprintf(timeString, "%02d:%02d", sTime.Hours, sTime.Minutes);
-    drawText(30, hTS.Height - 50, Font20, UTIL_LCD_COLOR_BLACK);
+//    RTC_TimeTypeDef sTime;
+//    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+//
+//    if (sTime.Minutes == currMin) return; // preveri ce je treba posodobit izpis
+//    currMin = sTime.Minutes;
+//    char timeString[6];
+//    sprintf(timeString, "%02d:%02d", sTime.Hours, sTime.Minutes);
+//    drawText(30, hTS.Height - 50, Font20, UTIL_LCD_COLOR_BLACK);
 }
 
 
@@ -198,6 +200,9 @@ void drawLoginScreen(void) { // narise login screen
     // Display text at center X, calculated Y
     char buf[64];
     sprintf(buf, "LOGIN");
+    UTIL_LCD_SetFont(&Font24);
+    UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLUE);
+    UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_WHITE);
     UTIL_LCD_DisplayStringAt(0, text_y, (uint8_t *)buf, CENTER_MODE);
 
     ts_status = BSP_TS_GetState(0, &TS_State);
@@ -206,7 +211,7 @@ void drawLoginScreen(void) { // narise login screen
     			loggedIn = 1;
     			UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
     		}
-    	}
+    }
 }
 
 void checkActivity(void) { // preveri aktivnost uporabnika
