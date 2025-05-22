@@ -56,6 +56,7 @@ uint8_t txUIDLength[128];
 uint8_t txUID[32];
 uint8_t txData[256];
 
+unsigned long textColor = UTIL_LCD_COLOR_BLACK;
 
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
@@ -269,12 +270,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             // Process the command
             if (strcmp(commandBuffer, "red") == 0)
             {
+            	  textColor = UTIL_LCD_COLOR_RED;
                 char msg[] = "\r\nYou entered RED!\r\n";
                 HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-            	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_RED);
-            } else if (strcmp(commandBuffer, "white") == 0) {
-            	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
-                char msg[] = "\r\nYou entered WHITE!\r\n";
+            } else if (strcmp(commandBuffer, "black") == 0) {
+            	  textColor = UTIL_LCD_COLOR_BLACK;
+                char msg[] = "\r\nYou entered BLACK!\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            } else if (strncmp(commandBuffer, "time", 4) == 0) {
+                const char *dateTimeStr = commandBuffer + 5;  // Skip "time "
+                setDateTimeFromString(dateTimeStr);
+                char msg[] = "\r\nSet datetime.\r\n";
                 HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
             }
             else
@@ -299,6 +305,55 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
         // Continue receiving next character
         HAL_UART_Receive_IT(&huart3, &receivedChar, 1);
+    }
+}
+
+void setDateTimeFromString(const char *dateTimeStr) {
+  // time 2025-05-18 14:30:00
+    RTC_TimeTypeDef sTime = {0};
+    RTC_DateTypeDef sDate = {0};
+
+    int year, month, day, hour, minute, second;
+
+    // Parse the string
+    if (sscanf(dateTimeStr, "%d-%d-%d %d:%d:%d",
+               &year, &month, &day, &hour, &minute, &second) != 6) {
+        // Invalid format
+        //Error_Handler();  // or handle gracefully
+        return;
+    }
+
+    // Convert to 2-digit year for RTC (valid range: 00-99 = 2000-2099)
+    if (year < 2000 || year > 2099) {
+        //Error_Handler();
+        return;
+    }
+
+    year -= 2000;
+
+    // Fill RTC time structure
+    sTime.Hours   = hour;
+    sTime.Minutes = minute;
+    sTime.Seconds = second;
+    sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+    sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+
+    // Set time
+    if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK) {
+        Error_Handler();
+        return;
+    }
+
+    // Fill RTC date structure
+    sDate.WeekDay = RTC_WEEKDAY_MONDAY;  // Optional — RTC may ignore it
+    sDate.Month   = month;
+    sDate.Date    = day;
+    sDate.Year    = year;
+
+    // Set date
+    if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK) {
+        Error_Handler();
+        return;
     }
 }
 

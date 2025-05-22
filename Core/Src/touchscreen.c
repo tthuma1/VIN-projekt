@@ -39,7 +39,7 @@
 // Barve za background
 
 #define BC_MAX_HEAT 0xFFFF5A00UL
-#define BC_MAX_COOL 0xFFCBF1FAUL
+#define BC_MAX_COOL 0xA7A0F2FAUL
 
 #define GET_R(color) (((color) >> 16) & 0xFF)
 #define GET_G(color) (((color) >> 8) & 0xFF)
@@ -83,6 +83,7 @@ static uint8_t currMin = 0;
 float currPower = 999;
 
 extern RTC_HandleTypeDef hrtc;
+extern unsigned long textColor;
 
 uint32_t ts_status = BSP_ERROR_NONE;
 /* Private function prototypes -----------------------------------------------*/
@@ -131,8 +132,8 @@ void Touchscreen_demo(void)
 
 void update_display(float set_temp, float measured, float power) {
 	// ce se power ali background posodobi se vse posodobi drugace nic
-	if (power != currPower || fadeStepsRemaining > 0) {
-    UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLACK);
+	// if (power != currPower || fadeStepsRemaining > 0) {
+    UTIL_LCD_SetTextColor(textColor);
     UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_WHITE);
 		uint32_t newTargetColor = getInterpolatedColor(power);
 
@@ -179,7 +180,7 @@ void update_display(float set_temp, float measured, float power) {
 		drawControl(alphaDown.x, alphaDown.y, 0, UTIL_LCD_COLOR_BLACK); // Narise DOWN control za alpha
 
 		drawTime(); // Narise cas ker zakaj ne
-	} else drawTime(); // Tut narise cas v primeru da se power ni spremenu cas pa se je
+	//} else drawTime(); // Tut narise cas v primeru da se power ni spremenu cas pa se je
 
     eventListener();
 }
@@ -232,7 +233,7 @@ void drawTime(void) {  // Narise cas
 void drawLoginScreen() { // Hvala ChadGPT
     UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
     UTIL_LCD_SetFont(&Font32);
-    UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
+    UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_BLACK);
     UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_BLUE);
 
     // Rectangle position and size
@@ -284,33 +285,34 @@ void drawText(uint16_t x, uint16_t y, sFONT fontSize, const char* content) {
 // preveri ali je bila kaksna iterakcija z zaslonom -> Ne preveri ce je bila interakcija z fizicnim gumbom
 void eventListener(void) {
 	ts_status = BSP_TS_GetState(0, &TS_State);
-	if(TS_State.TouchDetected) {
+	if(TS_State.TouchDetected && HAL_GetTick() - lastInteractionTime > 100) {
 		uint32_t tx = TS_State.TouchX;
 		uint32_t ty = TS_State.TouchY;
 
 		Control active;
-		uint8_t up = -1; // ce bo 0 ali 1 je bil nek gumb pressed, sluzi tudi kot boolean za drawControl
-		if (isPressed(tx, ty, tempUp.x, tempUp.y, tempUp.w, tempUp.h)) {
+		uint8_t up = 100; // ce bo 0 ali 1 je bil nek gumb pressed, sluzi tudi kot boolean za drawControl
+		if (isPressed(tx+10, ty+10, tempUp.x-10, tempUp.y-10, tempUp.w, tempUp.h)) {
 			prag = prag + 0.5;
 			active = tempUp;
 			up = 1;
 		}
-		if (isPressed(tx, ty, tempDown.x, tempDown.y, tempDown.w, tempDown.h)) {
+		else if (isPressed(tx+10, ty+10, tempDown.x-10, tempDown.y-10, tempDown.w, tempDown.h)) {
 			prag = prag - 0.5;
 			active = tempDown;
 			up = 0;
 		}
-		if (isPressed(tx, ty, alphaUp.x, alphaUp.y, alphaUp.w, alphaUp.h)) {
+		else if (isPressed(tx+10, ty+10, alphaUp.x-10, alphaUp.y-10, alphaUp.w, alphaUp.h)) {
 			alpha = alpha + 0.1;
 			active = alphaUp;
 			up = 1;
 		}
-		if (isPressed(tx, ty, alphaDown.x, alphaDown.y, alphaDown.w, alphaDown.h)) {
+		else if (isPressed(tx+10, ty+10, alphaDown.x-10, alphaDown.y-10, alphaDown.w, alphaDown.h)) {
 			alpha = alpha - 0.1;
 			active = alphaDown;
 			up = 0;
 		}
-		if (up > -1) { // preveri ce je bil gumb pressed
+
+		if (up != 100) { // preveri ce je bil gumb pressed
 			drawControl(active.x, active.y, up, UTIL_LCD_COLOR_RED);
 		}
     setLastActivityTime();
@@ -318,7 +320,8 @@ void eventListener(void) {
 }
 
 // collison detection za press
-uint8_t isPressed(uint32_t touch_x, uint32_t touch_y, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {    if (touch_x >= x && touch_x <= (x + w) &&
+uint8_t isPressed(uint32_t touch_x, uint32_t touch_y, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+    if (touch_x >= x && touch_x <= (x + w) &&
         touch_y >= y && touch_y <= (y + h)) {
         return 1;  // touch is inside area
     }
@@ -347,9 +350,17 @@ uint32_t getInterpolatedColor(float power) {
     uint8_t maxG = GET_G(BC_MAX_HEAT);
     uint8_t maxB = GET_B(BC_MAX_HEAT);
 
-    uint8_t r = lerp(minR, maxR, t);
-    uint8_t g = lerp(minG, maxG, t);
-    uint8_t b = lerp(minB, maxB, t);
+    uint8_t r = lerp(0, 250, t >= 0.5 ? t : 0);
+    uint8_t g = 0;
+    uint8_t b = lerp(0, 200, t < 0.5 ? 1 - t : 0);
+
+    if (t < 0.5) {
+      r = 100;
+      g = 100;
+    } else {
+      g = 50;
+      b = 50;
+    }
 
     return (r << 16) | (g << 8) | b;
 }
