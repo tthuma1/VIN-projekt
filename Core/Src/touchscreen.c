@@ -182,11 +182,11 @@ void update_display(float set_temp, float measured, float power, bool isLoggedIn
       drawControl(tempUp.x, tempUp.y, 1, UTIL_LCD_COLOR_BLACK); // Narise UP control za set temp
       drawControl(alphaUp.x, alphaUp.y, 1, UTIL_LCD_COLOR_BLACK); // Narise UP control za alpha
     } else {
-      UTIL_LCD_FillRect(tempDown.x-10, tempDown.y, 20, 20, currBackgroundColor);
-      UTIL_LCD_FillRect(alphaDown.x-10, alphaDown.y, 20, 20, currBackgroundColor);
+      UTIL_LCD_FillRect(tempDown.x-10, tempDown.y, 20, 20, UTIL_LCD_COLOR_WHITE);
+      UTIL_LCD_FillRect(alphaDown.x-10, alphaDown.y, 20, 20, UTIL_LCD_COLOR_WHITE);
 
-      UTIL_LCD_FillRect(tempUp.x-10, tempUp.y, 20, 20, currBackgroundColor);
-      UTIL_LCD_FillRect(alphaUp.x-10, alphaUp.y, 20, 20, currBackgroundColor);
+      UTIL_LCD_FillRect(tempUp.x-10, tempUp.y, 20, 20, UTIL_LCD_COLOR_WHITE);
+      UTIL_LCD_FillRect(alphaUp.x-10, alphaUp.y, 20, 20, UTIL_LCD_COLOR_WHITE);
     }
 
 		drawTime(); // Narise cas ker zakaj ne
@@ -394,7 +394,7 @@ void processBackgroundFade(void) {
     int b = b1 + (b2 - b1) * step / TOTAL_FADE_STEPS;
 
     uint32_t newColor = RGB_TO_COLOR(r, g, b);
-    UTIL_LCD_Clear(newColor);
+    // UTIL_LCD_Clear(newColor);
     currBackgroundColor = newColor;
 
     fadeStepsRemaining--;
