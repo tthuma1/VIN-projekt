@@ -115,10 +115,10 @@ void Touchscreen_demo(void)
   hTS.Orientation =TS_SWAP_XY ;
   hTS.Accuracy = 5;
 
-  tempUp = (Control){x_size/2, 30, 40, 40};
-  tempDown = (Control){x_size/2, y_size - 60, 40, 40};
-  alphaUp = (Control){x_size - 80, 30, 40, 40};
-  alphaDown = (Control){x_size - 80, y_size - 60, 40, 40};
+  tempUp = (Control){x_size/2 + 40, 30, 40, 40};
+  tempDown = (Control){x_size/2 + 40, y_size - 60, 40, 40};
+  alphaUp = (Control){x_size - 75, 30, 40, 40};
+  alphaDown = (Control){x_size - 75, y_size - 60, 40, 40};
 
 
   /* Touchscreen initialization */
@@ -190,7 +190,6 @@ void update_display(float set_temp, float measured, float power, bool isLoggedIn
     }
 
 		drawTime(); // Narise cas ker zakaj ne
-	//} else drawTime(); // Tut narise cas v primeru da se power ni spremenu cas pa se je
 
   if (isLoggedIn) {
     eventListener();
