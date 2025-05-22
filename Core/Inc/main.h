@@ -29,6 +29,9 @@
 #include "stm32h750b_discovery_ts.h"
 #include "stm32_lcd.h"
 
+#include <stdbool.h>
+#include <math.h>
+
 /* Exported variables --------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 #define LED_GREEN      LED1
@@ -36,7 +39,7 @@
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 void Touchscreen_demo(void);
-void update_display(float, float, float);
+void update_display(float, float, float, bool);
 void drawLoginScreen(void);
 void checkActivity(void);
 void Error_Handler(void);

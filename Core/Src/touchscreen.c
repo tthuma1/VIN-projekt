@@ -18,6 +18,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdbool.h>
 
 /** @addtogroup STM32H7xx_HAL_Examples
   * @{
@@ -130,7 +131,7 @@ void Touchscreen_demo(void)
 }
 
 
-void update_display(float set_temp, float measured, float power) {
+void update_display(float set_temp, float measured, float power, bool isLoggedIn) {
 	// ce se power ali background posodobi se vse posodobi drugace nic
 	// if (power != currPower || fadeStepsRemaining > 0) {
     UTIL_LCD_SetTextColor(textColor);
@@ -156,9 +157,6 @@ void update_display(float set_temp, float measured, float power) {
 		drawText(30, 30, Font16, buf);
 
 
-		drawControl(tempUp.x, tempUp.y, 1, UTIL_LCD_COLOR_BLACK); // Narise UP control za set temp
-		drawControl(alphaUp.x, alphaUp.y, 1, UTIL_LCD_COLOR_BLACK); // Narise UP control za alpha
-
 		// Spodnje tri funkcije narisejo samo static tekst
 		drawText(30, 100, Font16, "Room");
 		drawText(hTS.Width/2, 100, Font16, "Set");
@@ -176,13 +174,26 @@ void update_display(float set_temp, float measured, float power) {
 		drawText(110, 118, Font16, "C"); // Narise enoto -> To je treba se pravilno position-at
 
 
-		drawControl(tempDown.x, tempDown.y, 0, UTIL_LCD_COLOR_BLACK); // Narise DOWN control za set temp
-		drawControl(alphaDown.x, alphaDown.y, 0, UTIL_LCD_COLOR_BLACK); // Narise DOWN control za alpha
+    if (isLoggedIn) {
+      drawControl(tempDown.x, tempDown.y, 0, UTIL_LCD_COLOR_BLACK); // Narise DOWN control za set temp
+      drawControl(alphaDown.x, alphaDown.y, 0, UTIL_LCD_COLOR_BLACK); // Narise DOWN control za alpha
+
+      drawControl(tempUp.x, tempUp.y, 1, UTIL_LCD_COLOR_BLACK); // Narise UP control za set temp
+      drawControl(alphaUp.x, alphaUp.y, 1, UTIL_LCD_COLOR_BLACK); // Narise UP control za alpha
+    } else {
+      UTIL_LCD_FillRect(tempDown.x-10, tempDown.y, 20, 20, currBackgroundColor);
+      UTIL_LCD_FillRect(alphaDown.x-10, alphaDown.y, 20, 20, currBackgroundColor);
+
+      UTIL_LCD_FillRect(tempUp.x-10, tempUp.y, 20, 20, currBackgroundColor);
+      UTIL_LCD_FillRect(alphaUp.x-10, alphaUp.y, 20, 20, currBackgroundColor);
+    }
 
 		drawTime(); // Narise cas ker zakaj ne
 	//} else drawTime(); // Tut narise cas v primeru da se power ni spremenu cas pa se je
 
+  if (isLoggedIn) {
     eventListener();
+  }
 }
 
 
@@ -267,7 +278,7 @@ void drawLoginScreen() { // Hvala ChadGPT
 }
 
 void checkActivity(void) { // preveri aktivnost uporabnika
-	if (HAL_GetTick() - lastInteractionTime >= 30000) {
+	if (HAL_GetTick() - lastInteractionTime >= 10000) {
 		loggedIn = 0;
 	}
 }

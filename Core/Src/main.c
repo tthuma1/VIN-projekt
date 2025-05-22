@@ -19,8 +19,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdbool.h>
-#include <math.h>
 
 #include "PN532.h"
 #include "spi_pattern.h"
@@ -204,47 +202,43 @@ int main(void)
 		HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
 	}
 
-    if (loggedIn) {
-      float temp = Read_HTU21D_Temperature();
-      // //float temp = 22.0f;
-      // float diff = temp - prag;
+    float temp = Read_HTU21D_Temperature();
+    // //float temp = 22.0f;
+    float diff = temp - prag;
 
-      // // PD3 = ogrevanje ali hlajenje (leva lucka)
-      // // PJ2 = sredinska lucka
-      // // PI13 = desna lucka
+    // PD3 = ogrevanje ali hlajenje (leva lucka)
+    // PJ2 = sredinska lucka
+    // PI13 = desna lucka
 
-      // // leva lucka (ogravanje ali hlajenje)
-      //   if (temp < prag - 0.5) {
-      //       HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_SET);
-      //   } else {
-      //       HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_RESET);
-      //   }
+    // leva lucka (ogravanje ali hlajenje)
+    if (temp < prag - 0.5) {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_RESET);
+    }
 
-      //   if ((-1.5 <= diff && diff < -0.5) || (0.5 < diff && diff <= 1.5)) {
-      //     // nivo 1
-      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
-      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
-      //   } else if ((-2.5 <= diff && diff < -1.5) || (1.5 < diff && diff <= 2.5)) {
-      //     // nivo 2
-      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
-      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
-      //   } else if (diff < -2.5 || diff > 2.5) {
-      //     // nivo 3
-      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
-      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
-      //   } else {
-      //     // ugasnjeno
-      //       HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
-      //       HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
-      //   }
+    if ((-1.5 <= diff && diff < -0.5) || (0.5 < diff && diff <= 1.5)) {
+      // nivo 1
+        HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
+    } else if ((-2.5 <= diff && diff < -1.5) || (1.5 < diff && diff <= 2.5)) {
+      // nivo 2
+        HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
+    } else if (diff < -2.5 || diff > 2.5) {
+      // nivo 3
+        HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_RESET);
+    } else {
+      // ugasnjeno
+        HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOI, GPIO_PIN_13, GPIO_PIN_SET);
+    }
 
-        float power = calculate_power(temp, prag);
+    float power = calculate_power(temp, prag);
 
-      //   update_display(prag, temp, power); // tvoja funkcija za izris
-		  update_display(prag, temp, power);
-	  } else {
-		  drawLoginScreen();
-	  }
+    update_display(prag, temp, power, loggedIn);
+
 	  HAL_Delay(20);
     checkActivity();
   }
