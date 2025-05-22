@@ -146,7 +146,8 @@ void update_display(float set_temp, float measured, float power, bool isLoggedIn
 
 		processBackgroundFade();
 
-		UTIL_LCD_SetBackColor(currBackgroundColor);
+		// UTIL_LCD_SetBackColor(currBackgroundColor);
+		UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_WHITE);
 
 		char buf[64];
 
@@ -395,6 +396,7 @@ void processBackgroundFade(void) {
 
     uint32_t newColor = RGB_TO_COLOR(r, g, b);
     // UTIL_LCD_Clear(newColor);
+    UTIL_LCD_FillCircle(190, 37, 15, newColor);
     currBackgroundColor = newColor;
 
     fadeStepsRemaining--;
