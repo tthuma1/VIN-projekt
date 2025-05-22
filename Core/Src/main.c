@@ -36,7 +36,6 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define MAX_COMMAND_LEN 100
-#define USE_BSP_COM_FEATURE
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
@@ -98,7 +97,8 @@ float calculate_power(float temperature, float prag) {
     return -3.0f * tanhf(alpha * x); // tanhf je float verzija tanh()
 }
 
-float prag = 22.0f;
+float prag = 22.0f; // Set temp
+float alpha = 1.0f; // faktor ostrine S-krivulje
 uint8_t loggedIn = 0;
 char commandBuffer[MAX_COMMAND_LEN];
 int commandIndex = 0;
@@ -241,6 +241,7 @@ int main(void)
 		  drawLoginScreen();
 	  }
 	  HAL_Delay(20);
+    // checkActivity();
   }
 }
 
