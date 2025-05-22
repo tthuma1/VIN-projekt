@@ -19,7 +19,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdbool.h>
 #include <math.h>
+
+#include "PN532.h"
+#include "spi_pattern.h"
 
 /** @addtogroup STM32H7xx_HAL_Examples
   * @{
@@ -32,10 +36,26 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define MAX_COMMAND_LEN 100
+#define USE_BSP_COM_FEATURE
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c4;
 UART_HandleTypeDef huart3;
+SPI_HandleTypeDef hspi2;
+
+uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+uint8_t tagUid[] = { 0x93, 0x4D, 0x8, 0x14 };
+
+uint32_t firmwareVersion = 0;
+
+StatusCode532_t statusCode;
+
+uint8_t txFWversion[128];
+uint8_t txUIDLength[128];
+uint8_t txUID[32];
+uint8_t txData[256];
+
 
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
@@ -44,9 +64,14 @@ static void CPU_CACHE_Enable(void);
 static void MX_USART3_UART_Init(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C4_Init(void);
+static void MX_SPI2_Init(void);
 
 float Read_HTU21D_Temperature(void);
 float calculate_power(float, float);
+void Start_UART_Receive_IT();
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+
+
 
 /* Private functions ---------------------------------------------------------*/
 float Read_HTU21D_Temperature(void) {
@@ -110,6 +135,7 @@ int main(void)
   SystemClock_Config();
 
   MX_GPIO_Init();
+  MX_SPI2_Init();
   MX_USART3_UART_Init();
   MX_I2C4_Init();
   /* USER CODE BEGIN 2 */
@@ -122,55 +148,57 @@ int main(void)
 
   Touchscreen_demo();
 
+  Start_UART_Receive_IT();
+
+    /*****************************************************************************************************
+   * 1. Wake-up PN532 and check if it is available by getting its firmware version
+   *****************************************************************************************************/
+  HAL_UART_Transmit(&huart3, "\r\n--------------REBOOT--------------\r\nLooking for PN532... \r\n", sizeof("\r\n--------------REBOOT--------------\r\nLooking for PN532... \r\n"), HAL_MAX_DELAY);
+  PN532_SPI_Init();
+  while(1) {
+	  firmwareVersion = PN532_getFirmwareVersion();
+	  if (firmwareVersion != STATUS_532_ERROR) {               // if not able to read version number, quit
+		  break;
+	  }
+	  HAL_Delay(250);
+  }
+
+  sprintf(txFWversion, "PN532 found. Firmware version: 0x%08X \r\n", firmwareVersion);
+  HAL_UART_Transmit(&huart3, txFWversion, sizeof(txFWversion), HAL_MAX_DELAY);
+
+  /*****************************************************************************************************
+   * 2. Configure SAM: set normal operation mode and initialize the RF interface
+   *****************************************************************************************************/
+
+  HAL_UART_Transmit(&huart3, "Configuring SAM.... \r\n", sizeof("Configuring SAM.... \r\n"), HAL_MAX_DELAY);
+  while (PN532_SAMConfiguration() != STATUS_532_OK){
+	  HAL_Delay(100);
+  }
+  HAL_UART_Transmit(&huart3, "SAM configured.\r\n\r\n", sizeof("SAM configured.\r\n\r\n"), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
+
   /* Wait For User inputs */
   while (1)
   {
-//	HAL_UART_Transmit(&huart3, mydata, 1, HAL_MAX_DELAY);
-//	HAL_Delay(100); // pocakaj 1000 ms
 
-	// Receive one character (blocking)
-//	if (HAL_UART_Receive(&huart3, &receivedChar, 1, HAL_MAX_DELAY) == HAL_OK)
-//	{
-//		// Echo the character back
-//		HAL_UART_Transmit(&huart3, &receivedChar, 1, HAL_MAX_DELAY);
-//
-//		if (receivedChar == '\r' || receivedChar == '\n')
-//		{
-//			commandBuffer[commandIndex] = '\0';  // Null-terminate
-//
-//			// Check if the command is "red"
-//			if (strcmp(commandBuffer, "red") == 0)
-//			{
-//				char msg[] = "\r\nYou entered RED!\r\n";
-//				HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-//			}
-//			else
-//			{
-//				char msg[] = "\r\nUnknown command\r\n";
-//				HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
-//			}
-//
-//			// Reset buffer
-//			commandIndex = 0;
-//			memset(commandBuffer, 0, MAX_COMMAND_LEN);
-//		}
-//		else
-//		{
-//			// Store character if space permits
-//			if (commandIndex < MAX_COMMAND_LEN - 1)
-//			{
-//				commandBuffer[commandIndex++] = receivedChar;
-//			}
-//			else
-//			{
-//				// Optional: handle overflow
-//				commandIndex = 0;
-//				memset(commandBuffer, 0, MAX_COMMAND_LEN);
-//				char err[] = "\r\nInput too long!\r\n";
-//				HAL_UART_Transmit(&huart3, (uint8_t*)err, strlen(err), HAL_MAX_DELAY);
-//			}
-//		}
-//	}
+	statusCode = InListPassiveTarget(uid, &uidLength);
+	if (statusCode == STATUS_532_OK) {
+		sprintf(txUIDLength, "\r\nUID Length: %d \r\n\0", uidLength);
+		HAL_UART_Transmit(&huart3, txUIDLength, sizeof(txUIDLength), HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart3, "UID: ", sizeof("UID: "), HAL_MAX_DELAY);
+		bool jeTag = true;
+		for (int i = 0; i < uidLength; i++) {
+			if (uid[i] != tagUid[i]) jeTag = false;
+			sprintf(txUID, "0x%X ", uid[i]);
+			HAL_UART_Transmit(&huart3, txUID, sizeof(txUID), HAL_MAX_DELAY);
+		}
+		HAL_UART_Transmit(&huart3, "\r\n", sizeof("\r\n"), HAL_MAX_DELAY);
+
+		if (jeTag) {
+			loggedIn = true;
+		}
+		HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
+	}
 
     if (loggedIn) {
 //      float temp = Read_HTU21D_Temperature();
@@ -217,6 +245,60 @@ int main(void)
 	  checkActivity();
   }
 }
+
+void Start_UART_Receive_IT()
+{
+    HAL_UART_Receive_IT(&huart3, &receivedChar, 1);  // Start reception
+}
+
+// Callback gets called when a character is received
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        // Echo back the received character
+        HAL_UART_Transmit(&huart3, &receivedChar, 1, HAL_MAX_DELAY);
+
+        if (receivedChar == '\r' || receivedChar == '\n')
+        {
+            commandBuffer[commandIndex] = '\0';  // Terminate the string
+
+            // Process the command
+            if (strcmp(commandBuffer, "red") == 0)
+            {
+                char msg[] = "\r\nYou entered RED!\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_RED);
+            } else if (strcmp(commandBuffer, "white") == 0) {
+            	UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_WHITE);
+                char msg[] = "\r\nYou entered WHITE!\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            }
+            else
+            {
+                char msg[] = "\r\nUnknown command\r\n";
+                HAL_UART_Transmit(&huart3, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+            }
+
+            // Reset the buffer
+            commandIndex = 0;
+            memset(commandBuffer, 0, MAX_COMMAND_LEN);
+
+            HAL_UART_Transmit(&huart3, "> ", sizeof("> "), HAL_MAX_DELAY);
+        }
+        else
+        {
+            if (commandIndex < MAX_COMMAND_LEN - 1)
+            {
+                commandBuffer[commandIndex++] = receivedChar;
+            }
+        }
+
+        // Continue receiving next character
+        HAL_UART_Receive_IT(&huart3, &receivedChar, 1);
+    }
+}
+
 /**
   * @brief  System Clock Configuration
   *         The system Clock is configured as follow :
@@ -364,6 +446,58 @@ static void MX_I2C4_Init(void)
 }
 
 /**
+  * @brief SPI2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI2_Init(void)
+{
+
+  /* USER CODE BEGIN SPI2_Init 0 */
+
+  /* USER CODE END SPI2_Init 0 */
+
+  /* USER CODE BEGIN SPI2_Init 1 */
+
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_LSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 0x0;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi2.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+  hspi2.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
+  hspi2.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
+  hspi2.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
+  hspi2.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
+  hspi2.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+  hspi2.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
+  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+  hspi2.Init.IOSwap = SPI_IO_SWAP_DISABLE;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI2_Init 2 */
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -423,9 +557,20 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOI_CLK_ENABLE();
   __HAL_RCC_GPIOJ_CLK_ENABLE();
+
+    /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : PB4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3, GPIO_PIN_RESET);
