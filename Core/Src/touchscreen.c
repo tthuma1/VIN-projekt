@@ -204,16 +204,29 @@ void drawControl(uint16_t x, uint16_t y, uint8_t up, uint32_t color)
     }
 }
 
+void drawTime(void) {  // Narise cas
+  RTC_TimeTypeDef sTime;
+  RTC_DateTypeDef sDate;
 
-void drawTime(void) { // Narise cas
-   RTC_TimeTypeDef sTime;
-   HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+  // Get time first
+  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+  // Then get date (must be called *after* HAL_RTC_GetTime!)
+  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 
-   //if (sTime.Minutes == currMin) return; // preveri ce je treba posodobit izpis
-   currMin = sTime.Minutes;
-   char timeString[6];
-   sprintf(timeString, "%02d:%02d", sTime.Hours, sTime.Minutes);
-   drawText(30, hTS.Height - 50, Font20, timeString);
+  // if (sTime.Minutes == currMin) return; // preveri ce je treba posodobit izpis
+  currMin = sTime.Minutes;
+
+  // Format time string (HH:MM)
+  char timeString[6];
+  sprintf(timeString, "%02d:%02d", sTime.Hours, sTime.Minutes);
+
+  // Format date string (DD.MM.YYYY)
+  char dateString[12];
+  sprintf(dateString, "%02d.%02d.20%02d", sDate.Date, sDate.Month, sDate.Year);
+
+  // Draw time and date
+  drawText(30, hTS.Height - 70, Font20, timeString);   // Time on top
+  drawText(30, hTS.Height - 45, Font16, dateString);   // Date below
 }
 
 void drawLoginScreen() { // Hvala ChadGPT
